@@ -5,16 +5,25 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Select Terraform action'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
 
 jobs:
-  terraform:
+  terraform-apply:
     name: Terraform Apply and Plan
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'apply' }}
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      # Only include this if you're using temporary AWS credentials
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
     steps:
@@ -37,13 +46,13 @@ jobs:
         run: terraform plan -var="core_count=1" -var="thread_count=2"
 
       - name: Apply Terraform (only on push to main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event.inputs.action == 'apply'
         run: terraform apply -var="core_count=1" -var="thread_count=2" -auto-approve
 
-  destroy:
+  terraform-destroy:
     name: Terraform Destroy
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy' }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -62,4 +71,4 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
-        run: terraform destroy -var="core_count=1" -var="thread_count=2" -auto-approve
+        run: terraform destroy -var="core_count=1" -var="thread_count=2" -auto-approve
