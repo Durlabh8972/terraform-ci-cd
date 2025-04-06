@@ -2,21 +2,21 @@ name: Terraform CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch: # Allows manual trigger
 
 jobs:
   terraform:
-    name: Terraform
+    name: Terraform Apply and Plan
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # Only include this if you're using temporary AWS credentials
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -36,24 +36,25 @@ jobs:
         id: plan
         run: terraform plan -var="core_count=1" -var="thread_count=2"
 
-      - name: Apply Terraform (on push to main)
+      - name: Apply Terraform (only on push to main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform apply -var="core_count=1" -var="thread_count=2" -auto-approve
 
   destroy:
     name: Terraform Destroy
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' # Only runs on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: 1.3.5
 
@@ -61,4 +62,4 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
-        run: terraform destroy -var="core_count=1" -var="thread_count=2" -auto-approve
+        run: terraform destroy -var="core_count=1" -var="thread_count=2" -auto-approve
